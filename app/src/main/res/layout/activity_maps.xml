@@ -9,13 +9,19 @@
         android:id="@+id/current_address"
         android:layout_width="match_parent"
         android:layout_height="45dp"
-        android:textColor="@color/colorPrimary" />
+        android:textColor="@color/colorPrimary"/>
+    <AutoCompleteTextView
+        android:layout_below="@+id/current_address"
+        android:layout_width="match_parent"
+        android:layout_height="45dp"
+        android:id="@+id/remainder_address"
+        />
 
     <fragment xmlns:tools="http://schemas.android.com/tools"
         android:id="@+id/map"
         android:name="com.google.android.gms.maps.SupportMapFragment"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:layout_below="@+id/current_address" />
+        android:layout_below="@+id/remainder_address" />
 
 </RelativeLayout>
