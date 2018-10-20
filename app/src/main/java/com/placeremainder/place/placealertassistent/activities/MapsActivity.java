@@ -1,4 +1,5 @@
 package com.placeremainder.place.placealertassistent.activities;
+
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -41,7 +42,9 @@ import com.placeremainder.place.placealertassistent.adapters.PlaceAutocompleteAd
 import com.placeremainder.place.placealertassistent.models.LocationInfo;
 import com.placeremainder.place.placealertassistent.services.GoogleService;
 import com.placeremainder.place.placealertassistent.R;
+
 import java.io.IOException;
+import java.text.DecimalFormat;
 import java.util.List;
 import java.util.Locale;
 
@@ -76,7 +79,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         geocoder = new Geocoder(this, Locale.getDefault());
         mPref = PreferenceManager.getDefaultSharedPreferences(getApplicationContext());
         medit = mPref.edit();
-        mLocationInfo=new LocationInfo();
+        mLocationInfo = new LocationInfo();
         fn_permission();
         if (boolean_permission) {
 
@@ -140,11 +143,12 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         init();
 
     }
-    private void moveCamera(LatLng latLng, float zoom, String title){
-        Log.d(TAG, "moveCamera: moving the camera to: lat: " + latLng.latitude + ", lng: " + latLng.longitude );
+
+    private void moveCamera(LatLng latLng, float zoom, String title) {
+        Log.d(TAG, "moveCamera: moving the camera to: lat: " + latLng.latitude + ", lng: " + latLng.longitude);
         mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(latLng, zoom));
 
-        if(!title.equals("My Location")){
+        if (!title.equals("My Location")) {
             MarkerOptions options = new MarkerOptions()
                     .position(latLng)
                     .title(title);
@@ -152,7 +156,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         }
 
     }
-    private void init(){
+
+    private void init() {
         Log.d(TAG, "init: initializing");
         mAutocompleteAdapter = new PlaceAutocompleteAdapter(this, mGoogleApiClient,
                 LAT_LNG_BOUNDS, null);
@@ -161,10 +166,10 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         remainderAddress.setOnEditorActionListener(new TextView.OnEditorActionListener() {
             @Override
             public boolean onEditorAction(TextView textView, int actionId, KeyEvent keyEvent) {
-                if(actionId == EditorInfo.IME_ACTION_SEARCH
+                if (actionId == EditorInfo.IME_ACTION_SEARCH
                         || actionId == EditorInfo.IME_ACTION_DONE
                         || keyEvent.getAction() == KeyEvent.ACTION_DOWN
-                        || keyEvent.getAction() == KeyEvent.KEYCODE_ENTER){
+                        || keyEvent.getAction() == KeyEvent.KEYCODE_ENTER) {
                 }
 
                 return false;
@@ -173,61 +178,93 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         });
     }
 
-    protected synchronized void buildGoogleApiClient(){
-        mGoogleApiClient=new GoogleApiClient.Builder(this)
+    protected synchronized void buildGoogleApiClient() {
+        mGoogleApiClient = new GoogleApiClient.Builder(this)
                 .addApi(LocationServices.API)
                 .addApi(Places.GEO_DATA_API)
                 .addApi(Places.PLACE_DETECTION_API)
                 .build();
         remainderAddress.setOnItemClickListener(mAutoCompleteListener);
-        mAutocompleteAdapter = new PlaceAutocompleteAdapter(this,mGoogleApiClient,null,null);
+        mAutocompleteAdapter = new PlaceAutocompleteAdapter(this, mGoogleApiClient, null, null);
         mGoogleApiClient.connect();
 
     }
-    private AdapterView.OnItemClickListener mAutoCompleteListener=new AdapterView.OnItemClickListener() {
+
+    private AdapterView.OnItemClickListener mAutoCompleteListener = new AdapterView.OnItemClickListener() {
         @Override
         public void onItemClick(AdapterView<?> adapterView, View view, int i, long l) {
-            final AutocompletePrediction item=mAutocompleteAdapter.getItem(i);
-            final String placeId=item.getPlaceId();
-            PendingResult<PlaceBuffer> placeResult=Places.GeoDataApi.getPlaceById(mGoogleApiClient,placeId);
+            final AutocompletePrediction item = mAutocompleteAdapter.getItem(i);
+            final String placeId = item.getPlaceId();
+            PendingResult<PlaceBuffer> placeResult = Places.GeoDataApi.getPlaceById(mGoogleApiClient, placeId);
             placeResult.setResultCallback(mUpdatePlaceDetailsCallback);
         }
     };
-    private ResultCallback<PlaceBuffer> mUpdatePlaceDetailsCallback=new ResultCallback<PlaceBuffer>() {
+    private ResultCallback<PlaceBuffer> mUpdatePlaceDetailsCallback = new ResultCallback<PlaceBuffer>() {
         @Override
         public void onResult(@NonNull PlaceBuffer places) {
-            if(!places.getStatus().isSuccess()){
+            if (!places.getStatus().isSuccess()) {
                 places.release();
                 return;
             }
-            final Place place=places.get(0);
-            mLocationInfo.setLatLng(new LatLng(place.getViewport().getCenter().latitude,place.getViewport().getCenter().longitude));
-            if(mLocationInfo.getLatLng()!=null)
-                moveCamera(mLocationInfo.getLatLng(),15,"Dhaka");
+            final Place place = places.get(0);
+            medit.putString("rLatitude", place.getViewport().getCenter().latitude + "").commit();
+            medit.putString("rLongitude", place.getViewport().getCenter().longitude + "").commit();
             places.release();
         }
     };
     private BroadcastReceiver broadcastReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
-
             latitude = Double.valueOf(intent.getStringExtra("latutide"));
             longitude = Double.valueOf(intent.getStringExtra("longitude"));
+            double distance = distanceBitweenCAddressAndRAddress(latitude, longitude);
+            currentAddress.setText("" + distance + "km");
+            //float zoom = (float) (19 - (distance / 1900) * 29);
 
-            List<Address> addresses = null;
-
-            try {
-                addresses = geocoder.getFromLocation(latitude, longitude, 1);
-                String cityName = addresses.get(0).getAddressLine(0);
-                String stateName = addresses.get(0).getAddressLine(1);
-                String countryName = addresses.get(0).getAddressLine(2);
-
-            } catch (IOException e1) {
-                e1.printStackTrace();
+            LatLng cLatLng=new LatLng(latitude,longitude);
+            mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(cLatLng,15));
+            MarkerOptions cOptions = new MarkerOptions()
+                    .position(cLatLng)
+                    .title("Current Location");
+            mMap.addMarker(cOptions);
+            if (!mPref.getString("rLatitude", "").matches("") && !mPref.getString("rLatitude", "").matches("")) {
+                double rLatitude = Double.parseDouble(mPref.getString("rLatitude", ""));
+                double rLongitude = Double.parseDouble(mPref.getString("rLongitude", ""));
+                LatLng rLatLng=new LatLng(rLatitude,rLongitude);
+                MarkerOptions options = new MarkerOptions()
+                        .position(rLatLng)
+                        .title("Location");
+                mMap.addMarker(options);
             }
-            currentAddress.setText(latitude + " " + longitude);
         }
     };
+
+    private double distanceBitweenCAddressAndRAddress(double cLatitude, double cLongitude) {
+
+        if (!mPref.getString("rLatitude", "").matches("") && !mPref.getString("rLatitude", "").matches("")) {
+            int Radius = 6371;// radius of earth in Km
+            double rLatitude = Double.parseDouble(mPref.getString("rLatitude", ""));
+            double rLongitude = Double.parseDouble(mPref.getString("rLongitude", ""));
+
+            double dLat = Math.toRadians(rLatitude - cLatitude);
+            double dLon = Math.toRadians(rLongitude - cLongitude);
+            double a = Math.sin(dLat / 2) * Math.sin(dLat / 2)
+                    + Math.cos(Math.toRadians(cLatitude))
+                    * Math.cos(Math.toRadians(rLatitude)) * Math.sin(dLon / 2)
+                    * Math.sin(dLon / 2);
+            double c = 2 * Math.asin(Math.sqrt(a));
+            double valueResult = Radius * c;
+            double km = valueResult / 1;
+            DecimalFormat newFormat = new DecimalFormat("####");
+            int kmInDec = Integer.valueOf(newFormat.format(km));
+            double meter = valueResult % 1000;
+            int meterInDec = Integer.valueOf(newFormat.format(meter));
+            Log.i("Radius Value", "" + valueResult + "   KM  " + kmInDec
+                    + " Meter   " + meterInDec);
+            return Radius * c;
+        } else
+            return 0;
+    }
 
     @Override
     protected void onResume() {
